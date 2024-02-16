@@ -10,6 +10,10 @@ import (
 	// "github.com/xwb1989/sqlparser"
 )
 
+const (
+	HEADER_SIZE = 100
+)
+
 // Usage: your_sqlite3.sh sample.db .dbinfo
 func main() {
 	databaseFilePath := os.Args[1]
@@ -22,7 +26,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		header := make([]byte, 100)
+		header := make([]byte, HEADER_SIZE)
 
 		_, err = databaseFile.Read(header)
 		if err != nil {
@@ -35,7 +39,21 @@ func main() {
 			return
 		}
 
-		fmt.Printf("database page size: %v", pageSize)
+		var totalTable uint16
+		firstPage := make([]byte, pageSize-HEADER_SIZE) // only page 1 need to minus HEADER_SIZE
+		_, err = databaseFile.Read(firstPage)
+		if err != nil {
+			log.Fatalf("read 1st page err: %v", err)
+		}
+
+		err = binary.Read(bytes.NewReader(firstPage[3:5]), binary.BigEndian, &totalTable)
+		if err != nil {
+			fmt.Println("read total table DB err: ", err)
+			return
+		}
+
+		fmt.Printf("database page size: %v\n", pageSize)
+		fmt.Printf("number of tables: %v\n", totalTable)
 	default:
 		fmt.Println("Unknown command", command)
 		os.Exit(1)
