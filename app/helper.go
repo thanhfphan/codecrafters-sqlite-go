@@ -78,9 +78,13 @@ func parseSQLMasterRecord(reader *os.File) (*TblSqlMaster, error) {
 		serialtypes[i] = tmp
 	}
 
-	recordvalues, err := parseColumnValue(reader, serialtypes)
+	recordvalues, err := parseColumnValue(reader, serialtypes, nil)
 	if err != nil {
 		return nil, fmt.Errorf("parse column values got err: %w", err)
+	}
+
+	if len(recordvalues) == 0 {
+		return nil, fmt.Errorf("not found value table sql_master")
 	}
 
 	record := &TblSqlMaster{}
@@ -104,7 +108,7 @@ func parseSQLMasterRecord(reader *os.File) (*TblSqlMaster, error) {
 }
 
 // https://www.sqlite.org/fileformat.html#record_format
-func parseColumnValue(reader *os.File, serialtypes []uint32) ([]interface{}, error) {
+func parseColumnValue(reader *os.File, serialtypes []uint32, filter *Filter) ([]interface{}, error) {
 	result := make([]interface{}, len(serialtypes))
 	for i, st := range serialtypes {
 		if st == 0 {
@@ -157,6 +161,16 @@ func parseColumnValue(reader *os.File, serialtypes []uint32) ([]interface{}, err
 			result[i] = rawdata
 		} else {
 			return nil, fmt.Errorf("not support serial_type: %d", st)
+		}
+	}
+
+	if filter != nil {
+		for _, f := range filter.EqualFilter {
+			if f.ValueType == TypeString {
+				if result[f.IndexColumn].(string) != f.Value.(string) {
+					return nil, nil
+				}
+			}
 		}
 	}
 

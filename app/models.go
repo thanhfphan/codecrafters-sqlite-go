@@ -76,3 +76,13 @@ type TblSqlMaster struct {
 	RootPage int64
 	SQL      string
 }
+
+type Filter struct {
+	EqualFilter []*EqualFilter
+}
+
+type EqualFilter struct {
+	IndexColumn int
+	Value       interface{}
+	ValueType   ValueType
+}

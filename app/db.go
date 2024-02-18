@@ -175,7 +175,7 @@ func (db *DBLite) CountRecordOfTable(tableName string) (int64, error) {
 	return int64(header.NumberOfCells), nil
 }
 
-func (db *DBLite) SelectColumn(columnName, tableName string) ([]string, error) {
+func (db *DBLite) SelectColumn(columnName, tableName string, equalFilter map[string]interface{}) ([]string, error) {
 	tbl, err := db.getRecordSqlMaster(tableName)
 	if err != nil {
 		return nil, err
@@ -188,16 +188,38 @@ func (db *DBLite) SelectColumn(columnName, tableName string) ([]string, error) {
 		return nil, fmt.Errorf("parse DDL err=%w", err)
 	}
 
-	colOrder := -1
-	colCount := len(stmt.(*sqlparser.DDL).TableSpec.Columns)
-	for i, column := range stmt.(*sqlparser.DDL).TableSpec.Columns {
-		if strings.EqualFold(column.Name.String(), columnName) {
-			colOrder = i
-			break
+	getColIdx := func(_stmt sqlparser.Statement, _colName string) int {
+		for i, column := range _stmt.(*sqlparser.DDL).TableSpec.Columns {
+			if strings.EqualFold(column.Name.String(), _colName) {
+				return i
+			}
+
 		}
+		return -1
 	}
+
+	colOrder := getColIdx(stmt, columnName)
 	if colOrder == -1 {
 		return nil, fmt.Errorf("doesn't have a column: %s on table: %s", columnName, tableName)
+	}
+
+	colCount := len(stmt.(*sqlparser.DDL).TableSpec.Columns)
+
+	filter := &Filter{
+		EqualFilter: []*EqualFilter{},
+	}
+
+	for k, v := range equalFilter {
+		colID := getColIdx(stmt, k)
+		if colID == -1 {
+			return nil, fmt.Errorf("filter column_name: %s not found", k)
+		}
+
+		filter.EqualFilter = append(filter.EqualFilter, &EqualFilter{
+			IndexColumn: colID,
+			Value:       v,
+			ValueType:   TypeString,
+		})
 	}
 
 	reader, err := db.OpenReader()
@@ -276,9 +298,13 @@ func (db *DBLite) SelectColumn(columnName, tableName string) ([]string, error) {
 		}
 
 		// parse value
-		recordvalues, err := parseColumnValue(reader, serialtypes)
+		recordvalues, err := parseColumnValue(reader, serialtypes, filter)
 		if err != nil {
 			return nil, fmt.Errorf("parse column values got err=%w", err)
+		}
+
+		if len(recordvalues) == 0 {
+			continue
 		}
 
 		val, _ := recordvalues[colOrder].(string)

@@ -72,7 +72,19 @@ func main() {
 				for i := 0; i < colSelectCount; i++ {
 					selectcol := selectCmd.SelectExprs[i].(*sqlparser.AliasedExpr).Expr.(*sqlparser.ColName)
 					targetCol := selectcol.Name.Lowered()
-					data, err := dblite.SelectColumn(targetCol, tableName)
+
+					equalFilter := map[string]interface{}{}
+
+					if selectCmd.Where != nil {
+						switch whereExpr := selectCmd.Where.Expr.(type) {
+						case *sqlparser.ComparisonExpr:
+							colname := whereExpr.Left.(*sqlparser.ColName).Name.String()
+							valueToCompare := string(whereExpr.Right.(*sqlparser.SQLVal).Val)
+							equalFilter[colname] = valueToCompare
+						}
+					}
+
+					data, err := dblite.SelectColumn(targetCol, tableName, equalFilter)
 					if err != nil {
 						log.Fatalf("select column: %s from table: %s err: %v", targetCol, tableName, err)
 						os.Exit(1)

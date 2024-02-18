@@ -15,3 +15,9 @@ const (
 	MASK_FIST_BIT_ENABLE = 0b1000_0000
 	MASK_LAST_SEVEN_BIT  = 0b0111_1111
 )
+
+type ValueType string
+
+const (
+	TypeString ValueType = "string"
+)
