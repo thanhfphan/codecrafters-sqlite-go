@@ -94,8 +94,9 @@ func parseSQLMasterRecord(reader *os.File) (*TblSqlMaster, error) {
 	// table name
 	tmp, _ = recordvalues[2].(string)
 	record.TblName = tmp
-	// TODO: need implement
-	// record.RootPage =
+	// root page
+	tmpint, _ := parseInt64(recordvalues[3])
+	record.RootPage = tmpint
 	// SQL DDL
 	tmp, _ = recordvalues[4].(string)
 	record.SQL = tmp
@@ -137,4 +138,21 @@ func parseColumnValue(reader *os.File, serialtypes []uint32) ([]interface{}, err
 	}
 
 	return result, nil
+}
+
+func parseInt64(n interface{}) (int64, error) {
+	switch i := n.(type) {
+	case uint8:
+		return int64(i), nil
+	case uint16:
+		return int64(i), nil
+	case uint32:
+		return int64(i), nil
+	case int:
+		return int64(i), nil
+	case int32:
+		return int64(i), nil
+	}
+
+	return 0, fmt.Errorf("cant parse to int64: %v", n)
 }

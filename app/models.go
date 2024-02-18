@@ -73,6 +73,6 @@ type TblSqlMaster struct {
 	Type     string
 	Name     string
 	TblName  string
-	RootPage int
+	RootPage int64
 	SQL      string
 }

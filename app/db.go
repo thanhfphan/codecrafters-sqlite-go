@@ -84,11 +84,6 @@ func (db *DBLite) PageHeaders() ([]PageHeader, error) {
 			return nil, fmt.Errorf("parse page header err: %w", err)
 		}
 
-		// invalid or deleted
-		if pageHeader.Type == 0 {
-			continue
-		}
-
 		result = append(result, PageHeader{
 			PageIndex:    i,
 			dbPageHeader: pageHeader,
@@ -161,4 +156,31 @@ func (db *DBLite) GetTblSqlMaster() ([]*TblSqlMaster, error) {
 	}
 
 	return result, nil
+}
+
+func (db *DBLite) CountRecordOfTable(tableName string) (int64, error) {
+	records, err := db.GetTblSqlMaster()
+	if err != nil {
+		return 0, fmt.Errorf("get tbl sql master err: %w", err)
+	}
+
+	var tbl *TblSqlMaster
+	for _, record := range records {
+		if record.TblName == tableName {
+			tbl = record
+			break
+		}
+	}
+	if tbl == nil {
+		return 0, fmt.Errorf("not found table: %s\n", tableName)
+	}
+
+	pageheaders, err := db.PageHeaders()
+	if err != nil {
+		return 0, fmt.Errorf("get page header err: %w", err)
+	}
+
+	header := pageheaders[tbl.RootPage]
+
+	return int64(header.NumberOfCells), nil
 }

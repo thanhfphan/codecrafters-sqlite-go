@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	// Available if you need it!
-	// "github.com/xwb1989/sqlparser"
 )
 
 // Usage: your_sqlite3.sh sample.db .dbinfo
@@ -43,7 +42,17 @@ func main() {
 		fmt.Println(strings.Join(tables, " "))
 
 	default:
-		fmt.Println("Unknown command", command)
-		os.Exit(1)
+		strs := strings.Split(command, " ")
+		table := strs[len(strs)-1]
+
+		count, err := dblite.CountRecordOfTable(table)
+		if err != nil {
+			log.Fatalf("count record table: %s, err: %w\n", table, err)
+		}
+
+		fmt.Print(count)
+
+		// fmt.Println("Unknown command", command)
+		// os.Exit(1)
 	}
 }
