@@ -43,14 +43,15 @@ func main() {
 
 	default:
 		strs := strings.Split(command, " ")
-		table := strs[len(strs)-1]
+		fmt.Println(strs)
+		tableName := strs[len(strs)-1]
 
-		count, err := dblite.CountRecordOfTable(table)
+		count, err := dblite.CountRecordOfTable(tableName)
 		if err != nil {
-			log.Fatalf("count record table: %s, err: %w\n", table, err)
+			log.Fatalf("count record table: %s, err: %v\n", tableName, err)
 		}
 
-		fmt.Print(count)
+		fmt.Println(count)
 
 		// fmt.Println("Unknown command", command)
 		// os.Exit(1)
