@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 )
@@ -95,7 +94,7 @@ func parseSQLMasterRecord(reader *os.File) (*TblSqlMaster, error) {
 	tmp, _ = recordvalues[2].(string)
 	record.TblName = tmp
 	// root page
-	tmpint, _ := parseInt64(recordvalues[3])
+	tmpint, _ := ParseInt64(recordvalues[3])
 	record.RootPage = tmpint
 	// SQL DDL
 	tmp, _ = recordvalues[4].(string)
@@ -108,7 +107,36 @@ func parseSQLMasterRecord(reader *os.File) (*TblSqlMaster, error) {
 func parseColumnValue(reader *os.File, serialtypes []uint32) ([]interface{}, error) {
 	result := make([]interface{}, len(serialtypes))
 	for i, st := range serialtypes {
-		if st >= 13 && st%2 == 1 {
+		if st == 0 {
+			result[i] = nil
+		} else if st == 1 || st == 2 || st == 3 || st == 4 {
+			tmp := make([]byte, st)
+			if _, err := reader.Read(tmp); err != nil {
+				return nil, fmt.Errorf("read serial_type: %d, err: %w", st, err)
+			}
+
+			result[i], _ = ParseInt(tmp)
+		} else if st == 5 {
+			tmp := make([]byte, 6)
+			if _, err := reader.Read(tmp); err != nil {
+				return nil, fmt.Errorf("read serial_type: %d, err: %w", st, err)
+			}
+
+			result[i], _ = ParseInt(tmp)
+		} else if st == 6 {
+			tmp := make([]byte, 8)
+			if _, err := reader.Read(tmp); err != nil {
+				return nil, fmt.Errorf("read serial_type: %d, err: %w", st, err)
+			}
+
+			result[i], _ = ParseInt(tmp)
+		} else if st == 8 {
+			result[i] = 0
+		} else if st == 9 {
+			result[i] = 1
+		} else if st == 10 || st == 11 {
+			result[i] = nil
+		} else if st >= 13 && st%2 == 1 {
 			nbytes := (st - 13) / 2
 			rawdata := make([]byte, nbytes)
 
@@ -118,20 +146,15 @@ func parseColumnValue(reader *os.File, serialtypes []uint32) ([]interface{}, err
 
 			result[i] = string(rawdata)
 
-		} else if st == 1 {
-			tmp := make([]byte, 1)
-			if _, err := reader.Read(tmp); err != nil {
+		} else if st >= 12 && st%2 == 0 {
+			nbytes := (st - 12) / 2
+			rawdata := make([]byte, nbytes)
+
+			if _, err := reader.Read(rawdata); err != nil {
 				return nil, fmt.Errorf("read serial_type: %d, err: %w", st, err)
 			}
 
-			result[i] = uint8(tmp[0])
-		} else if st == 2 {
-			tmp := make([]byte, 2)
-			if _, err := reader.Read(tmp); err != nil {
-				return nil, fmt.Errorf("read serial_type: %d, err: %w", st, err)
-			}
-
-			result[i] = binary.BigEndian.Uint16(tmp)
+			result[i] = rawdata
 		} else {
 			return nil, fmt.Errorf("not support serial_type: %d", st)
 		}
@@ -140,7 +163,25 @@ func parseColumnValue(reader *os.File, serialtypes []uint32) ([]interface{}, err
 	return result, nil
 }
 
-func parseInt64(n interface{}) (int64, error) {
+// https://stackoverflow.com/questions/32096647/variable-length-twos-complement-to-int64
+func ParseInt(b []byte) (int64, error) {
+	if len(b) > 8 {
+		return 0, fmt.Errorf("value does not fit in a int64")
+	}
+
+	var n int64
+	for i, v := range b {
+		shift := uint((len(b) - i - 1) * 8)
+		if i == 0 && v&0x80 != 0 {
+			n -= 0x80 << shift
+			v &= 0x7f
+		}
+		n += int64(v) << shift
+	}
+	return n, nil
+}
+
+func ParseInt64(n interface{}) (int64, error) {
 	switch i := n.(type) {
 	case uint8:
 		return int64(i), nil
@@ -152,6 +193,8 @@ func parseInt64(n interface{}) (int64, error) {
 		return int64(i), nil
 	case int32:
 		return int64(i), nil
+	case int64:
+		return i, nil
 	}
 
 	return 0, fmt.Errorf("cant parse to int64: %v", n)
