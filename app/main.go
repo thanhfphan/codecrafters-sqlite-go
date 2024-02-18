@@ -43,18 +43,18 @@ func main() {
 		fmt.Println(strings.Join(tables, " "))
 
 	default:
-		st, err := sqlparser.Parse(command)
+		stmt, err := sqlparser.Parse(command)
 		if err != nil {
 			log.Fatalf("failed to parse command %s\n", command)
 		}
 
-		selectCmd, ok := st.(*sqlparser.Select)
+		selectCmd, ok := stmt.(*sqlparser.Select)
 		if ok {
 			tableName := selectCmd.From[0].(*sqlparser.AliasedTableExpr).Expr.(sqlparser.TableName).Name.String()
 			selectExpr := selectCmd.SelectExprs[0].(*sqlparser.AliasedExpr).Expr
-			switch selectExpr := selectExpr.(type) {
+			switch st := selectExpr.(type) {
 			case *sqlparser.FuncExpr:
-				funcName := selectExpr.Name.Lowered()
+				funcName := st.Name.Lowered()
 				if funcName != "count" {
 					log.Fatal("only support select count")
 				}
@@ -67,14 +67,27 @@ func main() {
 				fmt.Println(count)
 				os.Exit(0)
 			case *sqlparser.ColName:
-				targetCol := selectExpr.Name.Lowered()
-				data, err := dblite.SelectColumn(targetCol, tableName)
-				if err != nil {
-					log.Fatalf("select column: %s from table: %s err: %v", targetCol, tableName, err)
+				result := [][]string{}
+				colSelectCount := len(selectCmd.SelectExprs)
+				for i := 0; i < colSelectCount; i++ {
+					selectcol := selectCmd.SelectExprs[i].(*sqlparser.AliasedExpr).Expr.(*sqlparser.ColName)
+					targetCol := selectcol.Name.Lowered()
+					data, err := dblite.SelectColumn(targetCol, tableName)
+					if err != nil {
+						log.Fatalf("select column: %s from table: %s err: %v", targetCol, tableName, err)
+						os.Exit(1)
+					}
+
+					result = append(result, data)
 				}
 
-				for _, item := range data {
-					fmt.Println(item)
+				l := len(result[0])
+				for i := 0; i < l; i++ {
+					tmp := []string{}
+					for _, val := range result {
+						tmp = append(tmp, val[i])
+					}
+					fmt.Println(strings.Join(tmp, "|"))
 				}
 
 				os.Exit(0)
