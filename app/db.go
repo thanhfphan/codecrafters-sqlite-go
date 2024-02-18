@@ -180,7 +180,7 @@ func (db *DBLite) CountRecordOfTable(tableName string) (int64, error) {
 		return 0, fmt.Errorf("get page header err: %w", err)
 	}
 
-	header := pageheaders[tbl.RootPage]
+	header := pageheaders[tbl.RootPage-1]
 
 	return int64(header.NumberOfCells), nil
 }

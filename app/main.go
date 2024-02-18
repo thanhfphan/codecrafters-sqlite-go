@@ -43,9 +43,6 @@ func main() {
 
 	default:
 		strs := strings.Split(command, " ")
-		for _, s := range strs {
-			fmt.Println(s)
-		}
 		tableName := strs[len(strs)-1]
 
 		count, err := dblite.CountRecordOfTable(tableName)
